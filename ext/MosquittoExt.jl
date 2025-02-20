@@ -35,11 +35,14 @@ function encapsulateInFuture(value)
 end
 
 @kwdef struct MosquittoConnectionConfig
-    ip::String
+    host::String
     port::Int
     username::String=""
     password::String=""
     keepalive::Int=60
+    certfile_server::String="" # Path to server certificate file
+    certfile_client::String="" # Path to server certificate file
+    keyfile_client::String="" # Path to server certificate file
 end
 
 """
@@ -103,6 +106,22 @@ function MosquittoClientConfig(; kwargs...)
     client = Mosquitto.Client()
     return MosquittoClientConfig(client, MosquittoConnectionConfig(; kwargs...), Dict{Cint,Distributed.Future}(), Dict{String, MQTT.OnMessage}(), nothing, Ref{Bool}(false))
 end
+"""
+    MQTT.MQTTConnection(client::Mosquitto.Client; kwargs...)
+
+Create an MosquittoClientConfig object (an `AbstractConnection` for MQTT using `Mosquitto.jl` as a backend).
+
+# Keywords
+
+  - `host::String`: Hostname or IP address of the broker
+  - `port::Int`: Port. Typically 1883 for non-encrypted and 8883 for encrypted communication
+  - `username::String`: Username for username / password login. Default: ""
+  - `password::String`: Password. Default: ""
+  - `certfile_server::String`: Path to a CA certificate of the server for TLS/SSL connection (*.crt or *.pem, in PEM format)
+  - `certfile_client::String`: Path to a CA certificate of the client for TLS/SSL connection (*.crt or *.pem, in PEM format). Must also provide `keyfile_client` if this is provided.
+  - `keyfile_client::String`: Path to a CA key file of the client for TLS/SSL connection. Must also provide `certfile_client` if this is provided.
+  - `keepalive::Int`: Time in seconds before connection to broker is disconnected. Default: 60.
+"""
 function MQTT.MQTTConnection(client::Mosquitto.Client; kwargs...)
     return MosquittoClientConfig(client, MosquittoConnectionConfig(; kwargs...), Dict{Cint,Distributed.Future}(), Dict{String, MQTT.OnMessage}(), nothing, Ref{Bool}(false))
 end
@@ -112,8 +131,20 @@ function MQTT._resolve(future::Distributed.Future)
 end
 
 function MQTT._connect(c::MosquittoClientConfig)
+    if !isempty(c.connection_config.certfile_server)
+        ret = if !isempty(c.connection_config.certfile_client)
+            Mosquitto.tls_set(c.client, c.connection_config.certfile_server; certfile=c.connection_config.certfile_client, keyfile=c.connection_config.keyfile_client)
+        else    
+            Mosquitto.tls_set(c.client, c.connection_config.certfile_server)
+        end
+        if ret != Mosquitto.MosquittoCwrapper.MOSQ_ERR_SUCCESS
+            error("Error while trying to establish encrypted communication: $ret")
+        else
+            @info "Successfully set TLS"
+        end
+    end
     flag = Mosquitto.connect(
-        c.client, c.connection_config.ip, c.connection_config.port; 
+        c.client, c.connection_config.host, c.connection_config.port; 
         username=c.connection_config.username, 
         password=c.connection_config.password, 
         keepalive=c.connection_config.keepalive,
@@ -180,7 +211,7 @@ function loop(c::MosquittoClientConfig)
         msg_channel = Mosquitto.get_messages_channel(c.client)
         connect_channel = Mosquitto.get_connect_channel(c.client)
 
-        # Check if publishing has finished
+        # Check if publishing has finished --> somehow this never reacted :-(
         while isready(pub_channel)
             message_id = take!(pub_channel)
             @info "Received message with ID $message_id"
