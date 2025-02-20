@@ -4,29 +4,34 @@ authors = ["Nicholas Shindler <nick@shindler.tech> and contributors"]
 version = "0.1.0"
 
 [deps]
+Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 
 [weakdeps]
 AWSCRT = "df31ea59-17a4-4ebd-9d69-4f45266dc2c7"
 MQTTClient = "985f35cc-2c3d-4943-b8c1-f0931d5f0959"
+Mosquitto = "db317de6-444b-4dfa-9d0e-fbf3d8dd78ea"
 
 [extensions]
 AWSCRTExt = "AWSCRT"
 MQTTClientExt = "MQTTClient"
+MosquittoExt = "Mosquitto"
 
 [compat]
 AWSCRT = "^0.3"
 Aqua = "^0.8"
 MQTTClient = "^0.3.1"
-Test = "^0"
+Mosquitto = "0.10.0"
 Sockets = "^0"
+Test = "^0"
 julia = "1.9"
 
 [extras]
 AWSCRT = "df31ea59-17a4-4ebd-9d69-4f45266dc2c7"
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 MQTTClient = "985f35cc-2c3d-4943-b8c1-f0931d5f0959"
-Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+Mosquitto = "db317de6-444b-4dfa-9d0e-fbf3d8dd78ea"
 Sockets = "6462fe0b-24de-5631-8697-dd941f90decc"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Aqua", "AWSCRT", "MQTTClient", "Test", "Sockets"]
+test = ["Aqua", "AWSCRT", "Mosquitto", "MQTTClient", "Test", "Sockets"]
