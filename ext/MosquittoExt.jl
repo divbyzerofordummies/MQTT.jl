@@ -107,7 +107,7 @@ mutable struct MosquittoClientConfig <: MQTT.AbstractConnection
     is_loop_running::Bool
 end
 function MosquittoClientConfig(client::Mosquitto.Client; kwargs...)
-    return MosquittoClientConfig(
+    cfg = MosquittoClientConfig(
         client, 
         MosquittoConnectionConfig(; kwargs...), 
         Dict{Cint,Distributed.Future}(), # pub_inflight
@@ -118,6 +118,15 @@ function MosquittoClientConfig(client::Mosquitto.Client; kwargs...)
         Ref{Bool}(false), # is_running
         false, # is_loop_running
     )
+    # Make sure connection is given up and loop is stopped
+    # See https://docs.julialang.org/en/v1/base/base/#Base.finalizer
+    finalizer(cfg) do x
+        if x.is_loop_running
+            @async MQTT._disconnect(x) # is the async really needed here?
+        end
+        return x
+    end
+    return cfg
 end
 function MosquittoClientConfig(; kwargs...)
     client = Mosquitto.Client()
