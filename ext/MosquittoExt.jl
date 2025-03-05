@@ -246,14 +246,24 @@ function loop(c::MosquittoClientConfig)
         # Check if publishing has finished --> somehow this never reacted :-(
         while isready(connect_channel)
             connect_cb = take!(connect_channel) # a Mosquitto.ConnectionCB object
-            @info "MQTT.MosquittoExt.loop: Received connect message with content: $connect_cb"
-            if connect_cb.val == 1 && !isnothing(c.connect_callback) # 0 on disconnect, 1 on connect
-                put!(c.connect_callback, connect_cb.returncode)
-                c.connect_callback = nothing
+            # @info "MQTT.MosquittoExt.loop: Received connect message with content: $connect_cb"
+            if connect_cb.val == 1
+                # If the user called _connect, there is a Future() that needs to be written to
+                if !isnothing(c.connect_callback) # 0 on disconnect, 1 on connect
+                    put!(c.connect_callback, connect_cb.returncode)
+                    c.connect_callback = nothing
+                else
+                    @warn("Received connect message with content `$connect_cb` even though we were not expecting it.")
+                end
             end
-            if connect_cb.val == 0 && !isnothing(c.disconnect_callback)
-                put!(c.disconnect_callback, connect_cb.returncode)
-                c.disconnect_callback = nothing
+            if connect_cb.val == 0
+                # If the user called _disconnect, there is a Future() that needs to be written to
+                if !isnothing(c.disconnect_callback)
+                    put!(c.disconnect_callback, connect_cb.returncode)
+                    c.disconnect_callback = nothing
+                else
+                    @warn("Received disconnect message with content `$connect_cb` even though we were not expecting it.")
+                end
             end
         end
             
