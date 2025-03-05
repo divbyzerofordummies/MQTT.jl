@@ -176,13 +176,15 @@ function MQTT._connect(c::MosquittoClientConfig) # future contains a Mosuitto.Mo
     )
 
     if flag == Mosquitto.MosquittoCwrapper.MOSQ_ERR_SUCCESS
-        c.is_loop_running && @error("MQTT loop is already running. Something must have gone wrong.")
+        c.is_loop_running && @error("MQTT loop is already running. Something must have gone wrong. Maybe re-connecting.")
         c.pub_inflight = Dict{Cint, Distributed.Future}()
         c.callbacks = Dict{String, MQTT.OnMessage}() # get rid of invalid callbacks
         c.is_running[] = true # must be set before we spawn the thread
         c.connect_callback = Distributed.Future() # will be called in the loop if CONNACK is received
         c.disconnect_callback = nothing
-        c.loop_task = Threads.@spawn loop(c)
+        if !c.is_loop_running
+            c.loop_task = Threads.@spawn loop(c)
+        end
         return c.connect_callback
     end
 
