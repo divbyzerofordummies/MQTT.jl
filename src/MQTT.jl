@@ -124,7 +124,7 @@ publish!(connection::AbstractConnection, topic, payload, qos::QOS; retain=false)
 """
     unsubscribe_async!(connection::AbstractConnection, topic)
 
-Unsubscribe from a topic. 
+Unsubscribe from a topic.
 
 Returns immediately, does not wait for acknowledgement.
 """

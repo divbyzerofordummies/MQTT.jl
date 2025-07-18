@@ -37,12 +37,12 @@ end
 @kwdef struct MosquittoConnectionConfig
     host::String
     port::Int
-    username::String=""
-    password::String=""
-    keepalive::Int=60
-    certfile_server::String="" # Path to server certificate file
-    certfile_client::String="" # Path to server certificate file
-    keyfile_client::String="" # Path to server certificate file
+    username::String = ""
+    password::String = ""
+    keepalive::Int = 60
+    certfile_server::String = "" # Path to server certificate file
+    certfile_client::String = "" # Path to server certificate file
+    keyfile_client::String = "" # Path to server certificate file
 end
 
 """
@@ -58,7 +58,7 @@ Returns `nothing` if no match is found, or the name of the topic with wildcards.
 topics = ["v1/devices/me/rpc/request/+"]
 topic = "v1/devices/me/rpc/request/23"
 @test findmatch(topic, topics) == "v1/devices/me/rpc/request/+"
-````
+```
 """
 function findmatch(topic::AbstractString, topics::AbstractVector{String})
     levels = split(topic, '/')
@@ -71,7 +71,7 @@ function findmatch(topic::AbstractString, topics::AbstractVector{String})
             i_level > length(sub_levels) && continue
             sub_levels[i_level] == "#" && return sub_topic # we have reached a complete wildcard
             sub_levels[i_level] == "+" && continue # matches everything
-            if topic_level != sub_levels[i_level] 
+            if topic_level != sub_levels[i_level]
                 matches = false
                 break
             end
@@ -101,19 +101,19 @@ mutable struct MosquittoClientConfig <: MQTT.AbstractConnection
     pub_inflight::Dict{Cint,Distributed.Future}
     connect_callback::Union{Nothing,Distributed.Future}
     disconnect_callback::Union{Nothing,Distributed.Future}
-    callbacks::Dict{String, MQTT.OnMessage}
+    callbacks::Dict{String,MQTT.OnMessage}
     loop_task::Union{Nothing,Task}
     is_running::Ref{Bool}
     is_loop_running::Bool
 end
 function MosquittoClientConfig(client::Mosquitto.Client; kwargs...)
     cfg = MosquittoClientConfig(
-        client, 
-        MosquittoConnectionConfig(; kwargs...), 
+        client,
+        MosquittoConnectionConfig(; kwargs...),
         Dict{Cint,Distributed.Future}(), # pub_inflight
         nothing, # connect_callback
         nothing, # disconnect_callback
-        Dict{String, MQTT.OnMessage}(), # callbacks
+        Dict{String,MQTT.OnMessage}(), # callbacks
         nothing, # loop_task
         Ref{Bool}(false), # is_running
         false, # is_loop_running
@@ -160,8 +160,13 @@ end
 function MQTT._connect(c::MosquittoClientConfig) # future contains a Mosuitto.MosquittoCwrapper.mosq_err_t
     if !isempty(c.connection_config.certfile_server)
         ret = if !isempty(c.connection_config.certfile_client)
-            Mosquitto.tls_set(c.client, c.connection_config.certfile_server; certfile=c.connection_config.certfile_client, keyfile=c.connection_config.keyfile_client)
-        else    
+            Mosquitto.tls_set(
+                c.client,
+                c.connection_config.certfile_server;
+                certfile=c.connection_config.certfile_client,
+                keyfile=c.connection_config.keyfile_client,
+            )
+        else
             Mosquitto.tls_set(c.client, c.connection_config.certfile_server)
         end
         if ret != Mosquitto.MosquittoCwrapper.MOSQ_ERR_SUCCESS
@@ -169,16 +174,19 @@ function MQTT._connect(c::MosquittoClientConfig) # future contains a Mosuitto.Mo
         end
     end
     flag = Mosquitto.connect(
-        c.client, c.connection_config.host, c.connection_config.port; 
-        username=c.connection_config.username, 
-        password=c.connection_config.password, 
+        c.client,
+        c.connection_config.host,
+        c.connection_config.port;
+        username=c.connection_config.username,
+        password=c.connection_config.password,
         keepalive=c.connection_config.keepalive,
     )
 
     if flag == Mosquitto.MosquittoCwrapper.MOSQ_ERR_SUCCESS
-        c.is_loop_running && @error("MQTT loop is already running. Something must have gone wrong. Maybe re-connecting.")
-        c.pub_inflight = Dict{Cint, Distributed.Future}()
-        c.callbacks = Dict{String, MQTT.OnMessage}() # get rid of invalid callbacks
+        c.is_loop_running &&
+            @error("MQTT loop is already running. Something must have gone wrong. Maybe re-connecting.")
+        c.pub_inflight = Dict{Cint,Distributed.Future}()
+        c.callbacks = Dict{String,MQTT.OnMessage}() # get rid of invalid callbacks
         c.is_running[] = true # must be set before we spawn the thread
         c.connect_callback = Distributed.Future() # will be called in the loop if CONNACK is received
         c.disconnect_callback = nothing
@@ -264,11 +272,13 @@ function loop(c::MosquittoClientConfig)
                     put!(c.disconnect_callback, connect_cb.returncode)
                     c.disconnect_callback = nothing
                 else
-                    @warn("Received disconnect message with content `$connect_cb` even though we were not expecting it.")
+                    @warn(
+                        "Received disconnect message with content `$connect_cb` even though we were not expecting it."
+                    )
                 end
             end
         end
-            
+
         # Check if publishing has finished --> somehow this never reacted :-(
         while isready(pub_channel)
             message_id = take!(pub_channel)
